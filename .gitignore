@@ -1,0 +1,10 @@
+__init__
+
+venv/
+__pychache__/
+
+.vscode
+.env
+.idea
+
+db.sqlite3
