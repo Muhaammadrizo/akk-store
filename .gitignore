@@ -1,10 +1,7 @@
-__init__
-
-venv/
-__pychache__/
-
-.vscode
+﻿__pycache__/
+*.pyc
 .env
-.idea
-
-db.sqlite3
+.env.*
+*.sqlite3
+.vscode/
+.idea/
