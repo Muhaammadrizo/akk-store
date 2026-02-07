@@ -1,7 +1,6 @@
 ﻿__pycache__/
 *.pyc
 .env
-.env.*
 *.sqlite3
 .vscode/
 .idea/
