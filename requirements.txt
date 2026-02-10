@@ -9,3 +9,4 @@ django-cors-headers
 whitenoise
 gunicorn
 django-jazzmin
+pillow
