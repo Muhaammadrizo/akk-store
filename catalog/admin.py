@@ -15,3 +15,4 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "price", "stock", "is_active", "category")
     list_filter = ("is_active", "category")
     search_fields = ("name",)
+    fields = ("name", "price", "description", "stock", "is_active", "category", "image")

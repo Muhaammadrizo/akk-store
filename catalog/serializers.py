@@ -23,4 +23,5 @@ class ProductSerializer(serializers.ModelSerializer):
             "is_active",
             "category",
             "category_name",
+            "image",
         ]
