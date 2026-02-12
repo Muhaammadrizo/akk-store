@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delivery Location Picker</title>
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin=""
+    >
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f7f7f7;
+            color: #1f1f1f;
+        }
+
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        #map {
+            height: 60vh;
+            border-radius: 10px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+            margin-bottom: 16px;
+        }
+
+        .grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        }
+
+        label {
+            font-size: 14px;
+            display: block;
+        }
+
+        input, textarea {
+            width: 100%;
+            box-sizing: border-box;
+            margin-top: 4px;
+            padding: 10px;
+            border: 1px solid #d7d7d7;
+            border-radius: 8px;
+            background: #fff;
+        }
+
+        code {
+            display: block;
+            margin-top: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            background: #111827;
+            color: #f9fafb;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Courier Delivery Map</h1>
+        <p>Mapda nuqtani bosing. Address, latitude va longitude avtomatik chiqadi.</p>
+        <div id="map"></div>
+
+        <div class="grid">
+            <label>
+                Address
+                <textarea id="address" rows="3" readonly></textarea>
+            </label>
+            <label>
+                Latitude
+                <input id="latitude" type="text" readonly>
+            </label>
+            <label>
+                Longitude
+                <input id="longitude" type="text" readonly>
+            </label>
+        </div>
+
+        <p>Order yaratishda yuborish uchun namuna payload:</p>
+        <code id="payload"></code>
+    </div>
+
+    <script
+        src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+        crossorigin=""
+    ></script>
+    <script>
+        const map = L.map("map").setView([41.311081, 69.240562], 12);
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+            maxZoom: 19,
+            attribution: "&copy; OpenStreetMap contributors"
+        }).addTo(map);
+
+        let marker = null;
+
+        const addressInput = document.getElementById("address");
+        const latitudeInput = document.getElementById("latitude");
+        const longitudeInput = document.getElementById("longitude");
+        const payload = document.getElementById("payload");
+
+        function updatePayload(lat, lon) {
+            payload.textContent = JSON.stringify(
+                {
+                    delivery_type: "courier",
+                    payment_method: "cash",
+                    delivery_latitude: lat,
+                    delivery_longitude: lon,
+                    items: [
+                        { product: 1, quantity: 1 }
+                    ]
+                },
+                null,
+                2
+            );
+        }
+
+        async function reverseGeocode(lat, lon) {
+            const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        Accept: "application/json"
+                    }
+                });
+                if (!response.ok) {
+                    return "";
+                }
+                const data = await response.json();
+                return data.display_name || "";
+            } catch (error) {
+                return "";
+            }
+        }
+
+        map.on("click", async (event) => {
+            const lat = event.latlng.lat.toFixed(6);
+            const lon = event.latlng.lng.toFixed(6);
+
+            if (marker) {
+                marker.setLatLng(event.latlng);
+            } else {
+                marker = L.marker(event.latlng).addTo(map);
+            }
+
+            latitudeInput.value = lat;
+            longitudeInput.value = lon;
+            addressInput.value = "Address aniqlanmoqda...";
+            updatePayload(lat, lon);
+
+            const address = await reverseGeocode(lat, lon);
+            addressInput.value = address || `Lat ${lat}, Lon ${lon}`;
+        });
+
+        updatePayload("41.311081", "69.240562");
+    </script>
+</body>
+</html>
