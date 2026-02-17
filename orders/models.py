@@ -2,6 +2,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 class Order(models.Model):
@@ -96,7 +97,36 @@ class OrderItem(models.Model):
     )
     quantity = models.PositiveIntegerField(default=1)
     price = models.DecimalField(max_digits=12, decimal_places=2)
+    cost_price = models.DecimalField(max_digits=12, decimal_places=2, default=0)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    @property
+    def line_revenue(self):
+        return self.price * self.quantity
+
+    @property
+    def line_cost(self):
+        return self.cost_price * self.quantity
+
+    @property
+    def line_profit(self):
+        return self.line_revenue - self.line_cost
 
     def __str__(self):
         return f"{self.product} x {self.quantity}"
+
+
+class Expense(models.Model):
+    title = models.CharField(max_length=200)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    expense_date = models.DateField(default=timezone.now)
+    note = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-expense_date", "-created_at")
+        verbose_name = "Xarajat"
+        verbose_name_plural = "Moliya bo'limi"
+
+    def __str__(self):
+        return f"{self.title} - {self.amount}"

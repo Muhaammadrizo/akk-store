@@ -1,0 +1,225 @@
+{% extends "admin/change_list.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+  .finance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .finance-card {
+    border: 1px solid #d8dce5;
+    border-radius: 8px;
+    padding: 12px;
+    background: #fff;
+  }
+  .finance-card h4 {
+    margin: 0 0 8px;
+    font-size: 14px;
+    color: #4a5568;
+  }
+  .finance-card p {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #1a202c;
+  }
+  .finance-section {
+    margin-bottom: 20px;
+    border: 1px solid #d8dce5;
+    border-radius: 8px;
+    background: #fff;
+    padding: 12px;
+  }
+  .finance-section h3 {
+    margin: 0 0 12px;
+    font-size: 16px;
+  }
+  .revenue-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .revenue-pill {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #edf2f7;
+    font-size: 13px;
+    color: #2d3748;
+  }
+  .finance-chart-row {
+    display: grid;
+    grid-template-columns: 52px 1fr 100px;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+  .finance-track {
+    width: 100%;
+    background: #edf2f7;
+    border-radius: 999px;
+    overflow: hidden;
+    height: 12px;
+  }
+  .finance-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #2b6cb0, #38a169);
+  }
+  .finance-table-wrap {
+    overflow-x: auto;
+  }
+  .finance-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .finance-table th,
+  .finance-table td {
+    border-bottom: 1px solid #edf2f7;
+    padding: 8px 6px;
+    text-align: left;
+    white-space: nowrap;
+  }
+  .profit-positive {
+    color: #1f7a3d;
+    font-weight: 600;
+  }
+  .profit-negative {
+    color: #c53030;
+    font-weight: 600;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="finance-grid">
+  <div class="finance-card">
+    <h4>Umumiy daromad</h4>
+    <p>{{ finance_total_revenue|floatformat:2 }}</p>
+  </div>
+  <div class="finance-card">
+    <h4>Umumiy xarajat</h4>
+    <p>{{ finance_total_expense|floatformat:2 }}</p>
+  </div>
+  <div class="finance-card">
+    <h4>Umumiy tannarx</h4>
+    <p>{{ finance_total_cost|floatformat:2 }}</p>
+  </div>
+  <div class="finance-card">
+    <h4>Yalpi foyda</h4>
+    <p>{{ finance_gross_profit|floatformat:2 }}</p>
+  </div>
+  <div class="finance-card">
+    <h4>Sof foyda</h4>
+    <p>{{ finance_net_profit|floatformat:2 }}</p>
+  </div>
+  <div class="finance-card">
+    <h4>O'rtacha chek</h4>
+    <p>{{ finance_average_check|floatformat:2 }}</p>
+  </div>
+  <div class="finance-card">
+    <h4>Foyda foizi</h4>
+    <p>{{ finance_profit_percent|floatformat:2 }}%</p>
+  </div>
+</div>
+
+<div class="finance-section">
+  <h3>Kunlik daromadlar (1/7/30/90 kun va barchasi)</h3>
+  <div class="revenue-pills">
+    {% for item in finance_revenue_periods %}
+      <span class="revenue-pill">{{ item.label }}: {{ item.value|floatformat:2 }}</span>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="finance-section">
+  <h3>Kunlik daromad chart (so'nggi 30 kun)</h3>
+  {% for point in finance_daily_revenue_chart %}
+    <div class="finance-chart-row">
+      <span>{{ point.label }}</span>
+      <div class="finance-track">
+        <div class="finance-bar" style="width: {{ point.percent|floatformat:2 }}%;"></div>
+      </div>
+      <span>{{ point.revenue|floatformat:2 }}</span>
+    </div>
+  {% empty %}
+    <p>Hozircha ma'lumot yo'q.</p>
+  {% endfor %}
+</div>
+
+<div class="finance-section">
+  <h3>Top mahsulotlar (daromad bo'yicha)</h3>
+  <div class="finance-table-wrap">
+    <table class="finance-table">
+      <thead>
+        <tr>
+          <th>Mahsulot</th>
+          <th>Sotilgan soni</th>
+          <th>Daromad</th>
+          <th>Tannarx</th>
+          <th>Foyda</th>
+          <th>Foyda foizi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in finance_top_products %}
+          <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.quantity_sold }}</td>
+            <td>{{ item.revenue|floatformat:2 }}</td>
+            <td>{{ item.cost|floatformat:2 }}</td>
+            <td class="{% if item.profit >= 0 %}profit-positive{% else %}profit-negative{% endif %}">
+              {{ item.profit|floatformat:2 }}
+            </td>
+            <td>{{ item.margin_percent|floatformat:2 }}%</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6">Hozircha ma'lumot yo'q.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="finance-section">
+  <h3>Mahsulot bo'yicha foyda (barchasi)</h3>
+  <div class="finance-table-wrap">
+    <table class="finance-table">
+      <thead>
+        <tr>
+          <th>Mahsulot</th>
+          <th>Sotilgan soni</th>
+          <th>Daromad</th>
+          <th>Tannarx</th>
+          <th>Foyda</th>
+          <th>Foyda foizi</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in finance_product_profit_rows %}
+          <tr>
+            <td>{{ item.name }}</td>
+            <td>{{ item.quantity_sold }}</td>
+            <td>{{ item.revenue|floatformat:2 }}</td>
+            <td>{{ item.cost|floatformat:2 }}</td>
+            <td class="{% if item.profit >= 0 %}profit-positive{% else %}profit-negative{% endif %}">
+              {{ item.profit|floatformat:2 }}
+            </td>
+            <td>{{ item.margin_percent|floatformat:2 }}%</td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="6">Hozircha ma'lumot yo'q.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{{ block.super }}
+{% endblock %}

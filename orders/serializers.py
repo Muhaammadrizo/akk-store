@@ -73,8 +73,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = OrderItem
-        fields = ["id", "product", "product_name", "quantity", "price"]
-        read_only_fields = ["price"]
+        fields = ["id", "product", "product_name", "quantity", "price", "cost_price"]
+        read_only_fields = ["price", "cost_price"]
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -169,10 +169,17 @@ class OrderCreateSerializer(serializers.ModelSerializer):
 
         return [(item.product, item.quantity) for item in cart_items], cart
 
+    def _aggregate_items(self, items_for_order):
+        aggregated = {}
+        for product, quantity in items_for_order:
+            aggregated[product.id] = aggregated.get(product.id, 0) + quantity
+        return aggregated
+
     def create(self, validated_data):
         items_data = validated_data.pop("items", None)
         user = self.context["request"].user
         items_for_order, source_cart = self._resolve_items(user, items_data)
+        aggregated_items = self._aggregate_items(items_for_order)
 
         delivery_type = validated_data.get("delivery_type", Order.DeliveryType.PICKUP)
         if delivery_type == Order.DeliveryType.COURIER:
@@ -186,17 +193,49 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             validated_data["delivery_address"] = ""
 
         with transaction.atomic():
+            products = {
+                product.id: product
+                for product in Product.objects.select_for_update().filter(
+                    id__in=aggregated_items.keys(), is_active=True
+                )
+            }
+
+            unavailable_product_ids = [
+                product_id
+                for product_id in aggregated_items.keys()
+                if product_id not in products
+            ]
+            if unavailable_product_ids:
+                raise serializers.ValidationError(
+                    {"items": f"Mahsulot topilmadi yoki nofaol: {unavailable_product_ids}"}
+                )
+
+            stock_errors = {}
+            for product_id, quantity in aggregated_items.items():
+                product = products[product_id]
+                if product.stock < quantity:
+                    stock_errors[product.name] = (
+                        f"stock yetarli emas. Omborda: {product.stock}, so'ralgan: {quantity}"
+                    )
+            if stock_errors:
+                raise serializers.ValidationError({"items": stock_errors})
+
             order = Order.objects.create(user=user, **validated_data)
             total = Decimal("0.00")
-            for product, quantity in items_for_order:
+            for product_id, quantity in aggregated_items.items():
+                product = products[product_id]
                 price = product.price
                 OrderItem.objects.create(
                     order=order,
                     product=product,
                     quantity=quantity,
                     price=price,
+                    cost_price=product.cost_price,
                 )
                 total += price * quantity
+                product.stock -= quantity
+                product.total_stock_out += quantity
+                product.save(update_fields=["stock", "total_stock_out"])
             order.total_price = total
             order.save(update_fields=["total_price", "delivery_address"])
             if source_cart is not None:

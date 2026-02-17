@@ -20,6 +20,8 @@ class OrderFlowTests(APITestCase):
         self.product = Product.objects.create(
             name="Hammer",
             price="100000.00",
+            old_price="120000.00",
+            cost_price="70000.00",
             description="Steel hammer",
             stock=50,
             is_active=True,
@@ -47,6 +49,10 @@ class OrderFlowTests(APITestCase):
         self.assertEqual(order.delivery_type, "pickup")
         self.assertEqual(order.payment_method, "cash")
         self.assertEqual(self.user.cart.items.count(), 0)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock, 48)
+        self.assertEqual(self.product.total_stock_out, 2)
+        self.assertEqual(str(order.items.first().cost_price), "70000.00")
 
     def test_courier_requires_coordinates(self):
         create_order_url = reverse("order-list")
@@ -83,3 +89,17 @@ class OrderFlowTests(APITestCase):
         self.assertEqual(order.delivery_address, "Tashkent, Yunusobod")
         self.assertEqual(str(order.delivery_latitude), "41.311081")
         self.assertEqual(str(order.delivery_longitude), "69.240562")
+
+    def test_create_order_rejects_if_stock_is_not_enough(self):
+        create_order_url = reverse("order-list")
+        response = self.client.post(
+            create_order_url,
+            {
+                "delivery_type": "pickup",
+                "payment_method": "cash",
+                "items": [{"product": self.product.id, "quantity": 100}],
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("items", response.data)
