@@ -1,12 +1,14 @@
+from decimal import Decimal
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.urls import reverse
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from catalog.models import Category, Product
-from orders.models import Order
+from orders.models import Expense, Order, OrderItem
 
 User = get_user_model()
 
@@ -103,3 +105,135 @@ class OrderFlowTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("items", response.data)
+
+
+class FinanceApiTests(APITestCase):
+    def setUp(self):
+        self.staff = User.objects.create_superuser(
+            username="admin",
+            password="adminpass123",
+            email="admin@example.com",
+        )
+        self.user = User.objects.create_user(username="user1", password="userpass123")
+
+        self.category = Category.objects.create(name="Electronics", slug="electronics")
+        self.product1 = Product.objects.create(
+            name="Drill",
+            price="200.00",
+            cost_price="130.00",
+            stock=100,
+            is_active=True,
+            category=self.category,
+        )
+        self.product2 = Product.objects.create(
+            name="Saw",
+            price="100.00",
+            cost_price="60.00",
+            stock=100,
+            is_active=True,
+            category=self.category,
+        )
+
+        self.order = Order.objects.create(
+            user=self.user,
+            status=Order.Status.PAID,
+            delivery_type=Order.DeliveryType.PICKUP,
+            payment_method=Order.PaymentMethod.CASH,
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product1,
+            quantity=1,
+            price="200.00",
+            cost_price="130.00",
+        )
+        OrderItem.objects.create(
+            order=self.order,
+            product=self.product2,
+            quantity=2,
+            price="100.00",
+            cost_price="60.00",
+        )
+        self.order.recalc_total()
+
+        canceled = Order.objects.create(
+            user=self.user,
+            status=Order.Status.CANCELED,
+            delivery_type=Order.DeliveryType.PICKUP,
+            payment_method=Order.PaymentMethod.CASH,
+        )
+        OrderItem.objects.create(
+            order=canceled,
+            product=self.product1,
+            quantity=10,
+            price="200.00",
+            cost_price="130.00",
+        )
+
+        Expense.objects.create(
+            title="Rent",
+            amount="50.00",
+            expense_date=timezone.localdate(),
+            note="monthly",
+        )
+
+    def test_staff_can_get_finance_overview(self):
+        self.client.force_authenticate(user=self.staff)
+        response = self.client.get(reverse("finance-overview"))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Decimal(response.data["total_revenue"]), Decimal("400.00"))
+        self.assertEqual(Decimal(response.data["total_cost"]), Decimal("250.00"))
+        self.assertEqual(Decimal(response.data["gross_profit"]), Decimal("150.00"))
+        self.assertEqual(Decimal(response.data["total_expense"]), Decimal("50.00"))
+        self.assertEqual(Decimal(response.data["net_profit"]), Decimal("100.00"))
+        self.assertEqual(Decimal(response.data["average_check"]), Decimal("400.00"))
+        self.assertEqual(response.data["total_orders"], 1)
+        self.assertEqual(len(response.data["revenue_periods"]), 5)
+        self.assertEqual(response.data["top_products"][0]["name"], "Drill")
+
+    def test_non_staff_cannot_get_finance_overview(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(reverse("finance-overview"))
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_staff_can_crud_expense_api(self):
+        self.client.force_authenticate(user=self.staff)
+
+        create_response = self.client.post(
+            reverse("expense-list"),
+            {
+                "title": "Logistics",
+                "amount": "25.00",
+                "expense_date": timezone.localdate().isoformat(),
+                "note": "delivery",
+            },
+            format="json",
+        )
+        self.assertEqual(create_response.status_code, status.HTTP_201_CREATED)
+
+        expense_id = create_response.data["id"]
+        list_response = self.client.get(reverse("expense-list"))
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(list_response.data), 2)
+
+        update_response = self.client.patch(
+            reverse("expense-detail", args=[expense_id]),
+            {"amount": "30.00"},
+            format="json",
+        )
+        self.assertEqual(update_response.status_code, status.HTTP_200_OK)
+        self.assertEqual(Decimal(update_response.data["amount"]), Decimal("30.00"))
+
+    def test_non_staff_cannot_create_expense(self):
+        self.client.force_authenticate(user=self.user)
+        response = self.client.post(
+            reverse("expense-list"),
+            {
+                "title": "Transport",
+                "amount": "12.00",
+                "expense_date": timezone.localdate().isoformat(),
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

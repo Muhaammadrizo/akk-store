@@ -4,7 +4,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from catalog.models import Product
-from .models import Cart, CartItem, Order, OrderItem
+from .models import Cart, CartItem, Expense, Order, OrderItem
 from .services import reverse_geocode_address
 
 
@@ -241,3 +241,10 @@ class OrderCreateSerializer(serializers.ModelSerializer):
             if source_cart is not None:
                 source_cart.items.all().delete()
         return order
+
+
+class ExpenseSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Expense
+        fields = ["id", "title", "amount", "expense_date", "note", "created_at"]
+        read_only_fields = ["id", "created_at"]
