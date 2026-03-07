@@ -79,6 +79,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    courier = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -94,7 +95,14 @@ class OrderSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "items",
+            "courier",
         ]
+
+    def get_courier(self, obj):
+        if obj.courier:
+            from users.serializers import CourierSerializer
+            return CourierSerializer(obj.courier).data
+        return None
 
 
 class OrderCreateItemSerializer(serializers.Serializer):
@@ -238,6 +246,12 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 product.save(update_fields=["stock", "total_stock_out"])
             order.total_price = total
             order.save(update_fields=["total_price", "delivery_address"])
+            
+            # Avtomatik kurer tanlash (agar courier delivery bo'lsa)
+            if delivery_type == Order.DeliveryType.COURIER:
+                from .services import assign_courier_to_order
+                assign_courier_to_order(order)
+            
             if source_cart is not None:
                 source_cart.items.all().delete()
         return order

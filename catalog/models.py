@@ -26,6 +26,20 @@ class Product(models.Model):
     is_active = models.BooleanField(default=True)
     category = models.ForeignKey(Category, related_name="products", on_delete=models.CASCADE)
     image = models.ImageField(upload_to='products/', null=True, blank=True)
+    weight = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0,
+        verbose_name="Og'irlik (kg)",
+        help_text="Mahsulotning og'irligi kilogrammda"
+    )
+    volume = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=0,
+        verbose_name="Hajm (kub metr)",
+        help_text="Mahsulotning hajmi kub metrda"
+    )
 
     @property
     def profit_per_unit(self):

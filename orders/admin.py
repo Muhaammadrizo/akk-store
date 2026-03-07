@@ -28,15 +28,26 @@ class OrderAdmin(admin.ModelAdmin):
     list_display = (
         "id",
         "user",
+        "courier",
         "status",
         "delivery_type",
         "payment_method",
         "total_price",
         "created_at",
     )
-    list_filter = ("status", "delivery_type", "payment_method")
-    search_fields = ("id", "user__username", "user__email", "delivery_address")
+    list_filter = ("status", "delivery_type", "payment_method", "courier")
+    search_fields = (
+        "id", 
+        "user__username", 
+        "user__email", 
+        "delivery_address",
+        "courier__first_name",
+        "courier__last_name",
+        "courier__phone",
+        "courier__car_number"
+    )
     date_hierarchy = "created_at"
+    autocomplete_fields = ["courier"]
 
 
 @admin.register(OrderItem)

@@ -23,6 +23,14 @@ class Order(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, related_name="orders", on_delete=models.CASCADE
     )
+    courier = models.ForeignKey(
+        "users.Courier",
+        related_name="orders",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="Kurer"
+    )
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.CREATED)
     delivery_type = models.CharField(
         max_length=20, choices=DeliveryType.choices, default=DeliveryType.PICKUP
